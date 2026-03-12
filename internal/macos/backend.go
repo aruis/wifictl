@@ -16,9 +16,10 @@ type WiFiService struct {
 }
 
 type Status struct {
-	SSID string
-	IP   string
-	DNS  []string
+	SSID       string
+	Associated bool
+	IP         string
+	DNS        []string
 }
 
 type Backend struct{}
@@ -75,6 +76,14 @@ func (b *Backend) CurrentSSID(ctx context.Context, device string) (string, error
 	return strings.TrimSpace(ssid), nil
 }
 
+func (b *Backend) IsAssociated(ctx context.Context, device string) (bool, string, error) {
+	if associated, ssid, err := b.associationFromWDUtil(ctx, device); err == nil {
+		return associated, ssid, nil
+	}
+
+	return b.associationFromSystemProfiler(ctx, device)
+}
+
 func (b *Backend) ApplyDHCP(ctx context.Context, service string) error {
 	if _, err := run(ctx, "networksetup", "-setdhcp", service); err != nil {
 		return fmt.Errorf("apply DHCP on %q: %w", service, err)
@@ -103,18 +112,14 @@ func (b *Backend) ApplyStatic(ctx context.Context, service string, config profil
 }
 
 func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) {
-	ssid, err := b.CurrentSSID(ctx, wifi.Device)
+	associated, ssid, err := b.IsAssociated(ctx, wifi.Device)
 	if err != nil {
 		return Status{}, err
 	}
 
 	ip, err := run(ctx, "ipconfig", "getifaddr", wifi.Device)
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() != 0 {
-			ip = ""
-		} else {
-			return Status{}, fmt.Errorf("read IP address: %w", err)
-		}
+		ip = ""
 	}
 
 	dnsOut, err := run(ctx, "networksetup", "-getdnsservers", wifi.Service)
@@ -123,9 +128,10 @@ func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) 
 	}
 
 	return Status{
-		SSID: ssid,
-		IP:   strings.TrimSpace(ip),
-		DNS:  parseDNSServers(dnsOut),
+		SSID:       ssid,
+		Associated: associated,
+		IP:         strings.TrimSpace(ip),
+		DNS:        parseDNSServers(dnsOut),
 	}, nil
 }
 
@@ -203,6 +209,135 @@ func parseDNSServers(out string) []string {
 	}
 
 	return servers
+}
+
+func (b *Backend) associationFromWDUtil(ctx context.Context, device string) (bool, string, error) {
+	out, err := run(ctx, "wdutil", "info")
+	if err != nil {
+		return false, "", err
+	}
+
+	return parseWDUtilAssociation(out, device)
+}
+
+func (b *Backend) associationFromSystemProfiler(ctx context.Context, device string) (bool, string, error) {
+	out, err := run(ctx, "system_profiler", "SPAirPortDataType")
+	if err != nil {
+		return false, "", fmt.Errorf("read Wi-Fi status: %w", err)
+	}
+
+	return parseSystemProfilerAssociation(out, device)
+}
+
+func parseWDUtilAssociation(out, device string) (bool, string, error) {
+	lines := strings.Split(out, "\n")
+	inWiFiSection := false
+	var interfaceName string
+	var ssid string
+	var bssid string
+	var opMode string
+
+	for _, rawLine := range lines {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+
+		if strings.HasPrefix(line, "WIFI") {
+			inWiFiSection = true
+			continue
+		}
+
+		if inWiFiSection && strings.HasPrefix(line, "BLUETOOTH") {
+			break
+		}
+
+		if !inWiFiSection {
+			continue
+		}
+
+		key, value, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		switch key {
+		case "Interface Name":
+			interfaceName = value
+		case "SSID":
+			ssid = value
+		case "BSSID":
+			bssid = value
+		case "Op Mode":
+			opMode = value
+		}
+	}
+
+	if interfaceName == "" {
+		return false, "", fmt.Errorf("wdutil output did not include Wi-Fi interface data")
+	}
+
+	if interfaceName != device {
+		return false, "", fmt.Errorf("wdutil reported interface %q, expected %q", interfaceName, device)
+	}
+
+	associated := (ssid != "" && ssid != "None") || (bssid != "" && bssid != "None") || opMode == "STA"
+	return associated, redactAwareSSID(ssid), nil
+}
+
+func parseSystemProfilerAssociation(out, device string) (bool, string, error) {
+	lines := strings.Split(out, "\n")
+	inDeviceBlock := false
+	var status string
+	var currentNetwork string
+
+	for _, rawLine := range lines {
+		line := strings.TrimRight(rawLine, " ")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, device+":") {
+			inDeviceBlock = true
+			continue
+		}
+
+		if inDeviceBlock && !strings.HasPrefix(rawLine, "          ") && !strings.HasPrefix(rawLine, "            ") {
+			break
+		}
+
+		if !inDeviceBlock {
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "Status: ") {
+			status = strings.TrimSpace(strings.TrimPrefix(trimmed, "Status: "))
+			continue
+		}
+
+		if strings.HasSuffix(trimmed, ":") && strings.Contains(rawLine, "            ") && currentNetwork == "" && trimmed != "Current Network Information:" {
+			currentNetwork = strings.TrimSuffix(trimmed, ":")
+		}
+	}
+
+	if !inDeviceBlock {
+		return false, "", fmt.Errorf("system_profiler output did not include interface %q", device)
+	}
+
+	return strings.EqualFold(status, "Connected"), redactAwareSSID(currentNetwork), nil
+}
+
+func redactAwareSSID(value string) string {
+	value = strings.TrimSpace(value)
+	switch value {
+	case "", "None", "<redacted>":
+		return ""
+	default:
+		return value
+	}
 }
 
 func run(ctx context.Context, name string, args ...string) (string, error) {

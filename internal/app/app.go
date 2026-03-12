@@ -39,7 +39,7 @@ func (a *App) Run(ctx context.Context, command cli.Command, timeout time.Duratio
 		return err
 	}
 
-	if err := a.waitForSSID(ctx, wifi.Device, command.SSID, timeout); err != nil {
+	if err := a.waitForAssociation(ctx, wifi.Device, timeout); err != nil {
 		return err
 	}
 
@@ -70,15 +70,15 @@ func (a *App) Run(ctx context.Context, command cli.Command, timeout time.Duratio
 	return nil
 }
 
-func (a *App) waitForSSID(ctx context.Context, device, targetSSID string, timeout time.Duration) error {
+func (a *App) waitForAssociation(ctx context.Context, device string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		ssid, err := a.backend.CurrentSSID(ctx, device)
+		associated, _, err := a.backend.IsAssociated(ctx, device)
 		if err != nil {
 			return err
 		}
 
-		if ssid == targetSSID {
+		if associated {
 			return nil
 		}
 
@@ -89,7 +89,7 @@ func (a *App) waitForSSID(ctx context.Context, device, targetSSID string, timeou
 		}
 	}
 
-	return fmt.Errorf("timed out waiting for Wi-Fi %q to become active", targetSSID)
+	return fmt.Errorf("timed out waiting for the Wi-Fi interface to become associated")
 }
 
 func (a *App) waitForStatus(ctx context.Context, wifi macos.WiFiService, mode cli.Mode, timeout time.Duration) (macos.Status, error) {
@@ -125,7 +125,11 @@ func (a *App) waitForStatus(ctx context.Context, wifi macos.WiFiService, mode cl
 }
 
 func (a *App) printStatus(mode cli.Mode, wifi macos.WiFiService, status macos.Status) {
-	fmt.Fprintf(a.out, "Connected to %s\n", status.SSID)
+	if status.SSID != "" {
+		fmt.Fprintf(a.out, "Connected to %s\n", status.SSID)
+	} else {
+		fmt.Fprintf(a.out, "Connected to target Wi-Fi\n")
+	}
 	fmt.Fprintf(a.out, "Mode: %s\n", strings.ToUpper(string(mode)))
 	fmt.Fprintf(a.out, "Device: %s\n", wifi.Device)
 	fmt.Fprintf(a.out, "Service: %s\n", wifi.Service)

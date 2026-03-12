@@ -24,6 +24,7 @@ The current implementation is a working macOS Go CLI with:
 - print the resulting network status
 
 It does not depend on macOS Locations and does not try to manage long-running background rules in the first version.
+It also avoids depending on clear-text SSID readback after association, because newer macOS versions may redact or suppress SSID values in CLI output.
 
 ## Goals
 
@@ -189,6 +190,8 @@ The implementation relies on macOS system commands such as:
 - `networksetup`
 - `ipconfig`
 - `ifconfig`
+- `wdutil`
+- `system_profiler`
 
 The implementation should prefer stable system command wrappers over private APIs in the first version.
 

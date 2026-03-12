@@ -31,6 +31,7 @@
 - 直接输出结果
 
 第一版不依赖 macOS `Location`，也不做后台守护进程或复杂规则管理。
+另外，第一版不会把“必须回读到明文 SSID”作为连接成功的前提，因为较新的 macOS 版本可能会在命令行输出中隐藏或脱敏 SSID。
 
 ## 适用范围
 
@@ -196,6 +197,8 @@ CLI 应该明确区分以下失败场景：
 - `networksetup`
 - `ipconfig`
 - `ifconfig`
+- `wdutil`
+- `system_profiler`
 
 第一版优先使用稳定的系统命令封装，而不是私有 API。
 
