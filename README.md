@@ -23,7 +23,7 @@ wifictl status
 wifictl dhcp
 wifictl load <profile>
 wifictl export <profile>
-wifictl dns auto
+wifictl dns reset
 wifictl dns <server...>
 ```
 
@@ -34,7 +34,7 @@ wifictl status
 sudo wifictl dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
-sudo wifictl dns auto
+sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 sudo wifictl dns 223.5.5.5 119.29.29.29
 ```
@@ -49,8 +49,8 @@ sudo wifictl dns 223.5.5.5 119.29.29.29
   Loads a static IP profile and applies its DNS settings.
 - `export <profile>`
   Exports the current Wi-Fi service configuration into a profile file.
-- `dns auto`
-  Resets DNS servers to automatic without changing the IPv4 mode.
+- `dns reset`
+  Clears manual DNS settings and returns DNS resolution to the system default behavior without changing the IPv4 mode.
 - `dns <server...>`
   Applies one or more DNS servers without changing the IPv4 mode.
 
@@ -84,7 +84,7 @@ Commands that modify network settings require administrator privileges:
 ```bash
 sudo wifictl dhcp
 sudo wifictl load office.conf
-sudo wifictl dns auto
+sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 ```
 
@@ -105,6 +105,7 @@ Run:
 sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
+sudo ./dist/wifictl dns reset
 sudo ./dist/wifictl dns 114.114.114.114
 ```
 

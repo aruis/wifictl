@@ -23,7 +23,7 @@ wifictl status
 wifictl dhcp
 wifictl load <profile>
 wifictl export <profile>
-wifictl dns auto
+wifictl dns reset
 wifictl dns <server...>
 ```
 
@@ -34,7 +34,7 @@ wifictl status
 sudo wifictl dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
-sudo wifictl dns auto
+sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 sudo wifictl dns 223.5.5.5 119.29.29.29
 ```
@@ -49,8 +49,8 @@ sudo wifictl dns 223.5.5.5 119.29.29.29
   加载一份静态 IP profile，并应用其中的 DNS 设置。
 - `export <profile>`
   将当前 Wi-Fi 服务配置导出为 profile 文件。
-- `dns auto`
-  只恢复 DNS 为自动，不改 IPv4 模式。
+- `dns reset`
+  清除手动 DNS 设置，恢复为系统默认的 DNS 行为，不改 IPv4 模式。
 - `dns <server...>`
   只设置一个或多个 DNS，不改 IPv4 模式。
 
@@ -84,7 +84,7 @@ dns=192.168.10.2,223.5.5.5
 ```bash
 sudo wifictl dhcp
 sudo wifictl load office.conf
-sudo wifictl dns auto
+sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 ```
 
@@ -105,6 +105,7 @@ make build
 sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
+sudo ./dist/wifictl dns reset
 sudo ./dist/wifictl dns 114.114.114.114
 ```
 

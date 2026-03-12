@@ -133,6 +133,6 @@ func (a *App) printStatus(status macos.Status) {
 	if len(status.DNS) > 0 {
 		fmt.Fprintf(a.out, "DNS: %s\n", strings.Join(status.DNS, ", "))
 	} else {
-		fmt.Fprintf(a.out, "DNS: auto\n")
+		fmt.Fprintf(a.out, "DNS: reset (no DNS servers currently reported by macOS)\n")
 	}
 }

@@ -27,8 +27,8 @@ func TestParseLoad(t *testing.T) {
 	}
 }
 
-func TestParseDNSAuto(t *testing.T) {
-	command, err := Parse([]string{"dns", "auto"})
+func TestParseDNSReset(t *testing.T) {
+	command, err := Parse([]string{"dns", "reset"})
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}

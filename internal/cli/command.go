@@ -32,7 +32,7 @@ Usage:
   wifictl dhcp
   wifictl load <profile>
   wifictl export <profile>
-  wifictl dns auto
+  wifictl dns reset
   wifictl dns <server...>
 
 Examples:
@@ -40,7 +40,7 @@ Examples:
   wifictl dhcp
   wifictl load office.conf
   wifictl export office.conf
-  wifictl dns auto
+  wifictl dns reset
   wifictl dns 114.114.114.114
   wifictl dns 223.5.5.5 119.29.29.29
 `, "\n")
@@ -75,18 +75,18 @@ func Parse(args []string) (Command, error) {
 		}
 		return Command{Action: ActionExport, ProfilePath: args[1]}, nil
 	case string(ActionDNS):
-		return parseDNS(args[1:])
-	default:
+	return parseDNS(args[1:])
+default:
 		return Command{}, fmt.Errorf("unsupported command %q", args[0])
 	}
 }
 
 func parseDNS(args []string) (Command, error) {
 	if len(args) == 0 {
-		return Command{}, fmt.Errorf("dns requires either auto or one or more DNS server addresses")
+		return Command{}, fmt.Errorf("dns requires either reset or one or more DNS server addresses")
 	}
 
-	if len(args) == 1 && args[0] == "auto" {
+	if len(args) == 1 && args[0] == "reset" {
 		return Command{Action: ActionDNS, DNSAuto: true}, nil
 	}
 
