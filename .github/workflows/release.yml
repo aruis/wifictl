@@ -110,13 +110,25 @@ jobs:
   sync-homebrew-tap:
     name: sync homebrew tap
     needs: publish-release
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
+      - name: check token availability
+        id: token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -n "${HOMEBREW_TAP_TOKEN}" ]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: prepare tap update
         id: prepare
+        if: steps.token.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
@@ -186,7 +198,7 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: open or update pull request
-        if: steps.prepare.outputs.changed == 'true'
+        if: steps.token.outputs.present == 'true' && steps.prepare.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
@@ -203,3 +215,7 @@ jobs:
             --head "${{ steps.prepare.outputs.branch }}" \
             --title "Update wifictl formula to ${{ steps.prepare.outputs.version }}" \
             --body "Automated update generated from wifictl release ${GITHUB_REF_NAME}."
+
+      - name: skip sync without token
+        if: steps.token.outputs.present != 'true'
+        run: echo "HOMEBREW_TAP_TOKEN is not configured; skipping tap sync."
