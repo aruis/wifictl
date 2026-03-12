@@ -47,8 +47,8 @@ Examples:
   wifictl load office.conf
   wifictl export office.conf
   wifictl dns reset
-  wifictl dns 114.114.114.114
-  wifictl dns 223.5.5.5 119.29.29.29
+  wifictl dns 223.5.5.5 223.6.6.6
+  wifictl dns 223.5.5.5 223.6.6.6
   wifictl services
 `, "\n")
 }

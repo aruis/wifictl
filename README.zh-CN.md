@@ -39,8 +39,8 @@ sudo wifictl --service Ethernet dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
 sudo wifictl dns reset
-sudo wifictl dns 114.114.114.114
-sudo wifictl dns 223.5.5.5 119.29.29.29
+sudo wifictl dns 223.5.5.5 223.6.6.6
+sudo wifictl dns 223.5.5.5 223.6.6.6
 wifictl services
 ```
 
@@ -71,7 +71,7 @@ profile 使用简单的 `key=value` 格式。
 ip=192.168.10.88
 mask=255.255.255.0
 gateway=192.168.10.1
-dns=192.168.10.2,223.5.5.5
+dns=223.5.5.5,223.6.6.6
 ```
 
 必填字段：
@@ -92,7 +92,7 @@ dns=192.168.10.2,223.5.5.5
 sudo wifictl dhcp
 sudo wifictl load office.conf
 sudo wifictl dns reset
-sudo wifictl dns 114.114.114.114
+sudo wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 `status`、`export` 和 `services` 一般不需要 `sudo`。
@@ -115,7 +115,7 @@ sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
 sudo ./dist/wifictl dns reset
-sudo ./dist/wifictl dns 114.114.114.114
+sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 ## 输出示例
@@ -129,7 +129,7 @@ IPv4: Manual
 IP: 10.60.1.94
 Mask: 255.255.0.0
 Gateway: 10.60.1.254
-DNS: 114.114.114.114
+DNS: 223.5.5.5, 223.6.6.6
 ```
 
 可用服务输出示例：
@@ -168,6 +168,26 @@ make test
 ```bash
 make build
 ```
+
+## 发布
+
+项目已经配置 GitHub Actions：
+
+- 在 `main` 分支 push 和 PR 时自动跑 CI
+- 在推送符合 `v*` 的 tag 时自动创建 GitHub Release
+- 自动构建 `darwin/arm64` 和 `darwin/amd64` 两个 macOS 压缩包
+
+发布流程：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release 产物命名为：
+
+- `wifictl_<version>_Darwin_arm64.tar.gz`
+- `wifictl_<version>_Darwin_x86_64.tar.gz`
 
 ## 后续计划
 

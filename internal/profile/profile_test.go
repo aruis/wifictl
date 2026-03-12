@@ -9,7 +9,7 @@ import (
 func TestLoad(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "office.conf")
-	content := "ip=192.168.10.88\nmask=255.255.255.0\ngateway=192.168.10.1\ndns=192.168.10.2, 223.5.5.5\n"
+	content := "ip=192.168.10.88\nmask=255.255.255.0\ngateway=192.168.10.1\ndns=223.5.5.5, 223.6.6.6\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write profile: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestSave(t *testing.T) {
 		IP:      "10.60.1.94",
 		Mask:    "255.255.0.0",
 		Gateway: "10.60.1.254",
-		DNS:     []string{"114.114.114.114", "223.5.5.5"},
+		DNS:     []string{"223.5.5.5", "223.6.6.6"},
 	}
 
 	if err := Save(path, config); err != nil {

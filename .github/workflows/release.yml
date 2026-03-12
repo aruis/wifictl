@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: test
+    runs-on: macos-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: run tests
+        run: go test ./...
+
+  release:
+    name: release
+    needs: test
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            asset_suffix: Darwin_arm64
+          - goos: darwin
+            goarch: amd64
+            asset_suffix: Darwin_x86_64
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags="-s -w" -o "dist/wifictl" ./
+
+      - name: package archive
+        env:
+          ASSET_SUFFIX: ${{ matrix.asset_suffix }}
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          STAGE_DIR="release/wifictl_${VERSION}_${ASSET_SUFFIX}"
+          mkdir -p "${STAGE_DIR}"
+          cp dist/wifictl "${STAGE_DIR}/"
+          cp README.md README.zh-CN.md "${STAGE_DIR}/"
+          tar -C release -czf "wifictl_${VERSION}_${ASSET_SUFFIX}.tar.gz" "wifictl_${VERSION}_${ASSET_SUFFIX}"
+
+      - name: publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wifictl_${{ github.ref_name }}_${{ matrix.asset_suffix }}.tar.gz

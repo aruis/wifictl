@@ -39,8 +39,8 @@ sudo wifictl --service Ethernet dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
 sudo wifictl dns reset
-sudo wifictl dns 114.114.114.114
-sudo wifictl dns 223.5.5.5 119.29.29.29
+sudo wifictl dns 223.5.5.5 223.6.6.6
+sudo wifictl dns 223.5.5.5 223.6.6.6
 wifictl services
 ```
 
@@ -71,7 +71,7 @@ Example [`examples/office.conf`](/Users/aruis/develop/workspace-ai/test/wifictl/
 ip=192.168.10.88
 mask=255.255.255.0
 gateway=192.168.10.1
-dns=192.168.10.2,223.5.5.5
+dns=223.5.5.5,223.6.6.6
 ```
 
 Required keys:
@@ -92,7 +92,7 @@ Commands that modify network settings require administrator privileges:
 sudo wifictl dhcp
 sudo wifictl load office.conf
 sudo wifictl dns reset
-sudo wifictl dns 114.114.114.114
+sudo wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 `status`, `export`, and `services` do not require `sudo` in normal cases.
@@ -115,7 +115,7 @@ sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
 sudo ./dist/wifictl dns reset
-sudo ./dist/wifictl dns 114.114.114.114
+sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 ## Example Output
@@ -129,7 +129,7 @@ IPv4: Manual
 IP: 10.60.1.94
 Mask: 255.255.0.0
 Gateway: 10.60.1.254
-DNS: 114.114.114.114
+DNS: 223.5.5.5, 223.6.6.6
 ```
 
 Services output example:
@@ -168,6 +168,26 @@ Build:
 ```bash
 make build
 ```
+
+## Release
+
+GitHub Actions is configured to:
+
+- run CI on pushes to `main` and on pull requests
+- create a GitHub Release when a tag matching `v*` is pushed
+- build macOS archives for `darwin/arm64` and `darwin/amd64`
+
+Release flow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release assets are uploaded as:
+
+- `wifictl_<version>_Darwin_arm64.tar.gz`
+- `wifictl_<version>_Darwin_x86_64.tar.gz`
 
 ## Roadmap
 

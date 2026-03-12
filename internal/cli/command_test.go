@@ -45,7 +45,7 @@ func TestParseDNSReset(t *testing.T) {
 }
 
 func TestParseDNSServers(t *testing.T) {
-	command, err := Parse([]string{"dns", "223.5.5.5", "119.29.29.29"})
+	command, err := Parse([]string{"dns", "223.5.5.5", "223.6.6.6"})
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
