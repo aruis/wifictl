@@ -11,16 +11,22 @@ func TestParseStatus(t *testing.T) {
 	if command.Action != ActionStatus {
 		t.Fatalf("unexpected action: %q", command.Action)
 	}
+	if command.Service != "Wi-Fi" {
+		t.Fatalf("unexpected default service: %q", command.Service)
+	}
 }
 
 func TestParseLoad(t *testing.T) {
-	command, err := Parse([]string{"load", "office.conf"})
+	command, err := Parse([]string{"--service", "Ethernet", "load", "office.conf"})
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
 
 	if command.Action != ActionLoad {
 		t.Fatalf("unexpected action: %q", command.Action)
+	}
+	if command.Service != "Ethernet" {
+		t.Fatalf("unexpected service: %q", command.Service)
 	}
 	if command.ProfilePath != "office.conf" {
 		t.Fatalf("unexpected profile path: %q", command.ProfilePath)
@@ -52,5 +58,16 @@ func TestParseDNSServers(t *testing.T) {
 func TestParseInvalidCommand(t *testing.T) {
 	if _, err := Parse([]string{"connect", "OfficeWiFi"}); err == nil {
 		t.Fatal("expected error for unsupported command")
+	}
+}
+
+func TestParseServices(t *testing.T) {
+	command, err := Parse([]string{"services"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if command.Action != ActionServices {
+		t.Fatalf("unexpected action: %q", command.Action)
 	}
 }

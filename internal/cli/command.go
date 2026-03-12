@@ -2,7 +2,9 @@ package cli
 
 import (
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -14,11 +16,13 @@ const (
 	ActionLoad   Action = "load"
 	ActionExport Action = "export"
 	ActionDNS    Action = "dns"
+	ActionServices Action = "services"
 )
 
 var ErrHelp = errors.New("help requested")
 
 type Command struct {
+	Service     string
 	Action      Action
 	ProfilePath string
 	DNSServers  []string
@@ -28,21 +32,24 @@ type Command struct {
 func Usage() string {
 	return strings.TrimLeft(`
 Usage:
-  wifictl status
-  wifictl dhcp
-  wifictl load <profile>
-  wifictl export <profile>
-  wifictl dns reset
-  wifictl dns <server...>
+  wifictl [--service <name>] status
+  wifictl [--service <name>] dhcp
+  wifictl [--service <name>] load <profile>
+  wifictl [--service <name>] export <profile>
+  wifictl [--service <name>] dns reset
+  wifictl [--service <name>] dns <server...>
+  wifictl services
 
 Examples:
   wifictl status
+  wifictl --service Ethernet status
   wifictl dhcp
   wifictl load office.conf
   wifictl export office.conf
   wifictl dns reset
   wifictl dns 114.114.114.114
   wifictl dns 223.5.5.5 119.29.29.29
+  wifictl services
 `, "\n")
 }
 
@@ -51,33 +58,69 @@ func Parse(args []string) (Command, error) {
 		return Command{}, ErrHelp
 	}
 
-	switch args[0] {
+	command := Command{Service: "Wi-Fi"}
+	fs := flag.NewFlagSet("wifictl", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.StringVar(&command.Service, "service", "Wi-Fi", "")
+	fs.StringVar(&command.Service, "S", "Wi-Fi", "")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return Command{}, ErrHelp
+		}
+		return Command{}, err
+	}
+
+	rest := fs.Args()
+	if len(rest) == 0 {
+		return Command{}, ErrHelp
+	}
+
+	switch rest[0] {
 	case "help", "-h", "--help":
 		return Command{}, ErrHelp
+	case string(ActionServices):
+		if len(rest) != 1 {
+			return Command{}, fmt.Errorf("services does not accept arguments")
+		}
+		command.Action = ActionServices
+		return command, nil
 	case string(ActionStatus):
-		if len(args) != 1 {
+		if len(rest) != 1 {
 			return Command{}, fmt.Errorf("status does not accept arguments")
 		}
-		return Command{Action: ActionStatus}, nil
+		command.Action = ActionStatus
+		return command, nil
 	case string(ActionDHCP):
-		if len(args) != 1 {
+		if len(rest) != 1 {
 			return Command{}, fmt.Errorf("dhcp does not accept arguments")
 		}
-		return Command{Action: ActionDHCP}, nil
+		command.Action = ActionDHCP
+		return command, nil
 	case string(ActionLoad):
-		if len(args) != 2 {
+		if len(rest) != 2 {
 			return Command{}, fmt.Errorf("load requires <profile>")
 		}
-		return Command{Action: ActionLoad, ProfilePath: args[1]}, nil
+		command.Action = ActionLoad
+		command.ProfilePath = rest[1]
+		return command, nil
 	case string(ActionExport):
-		if len(args) != 2 {
+		if len(rest) != 2 {
 			return Command{}, fmt.Errorf("export requires <profile>")
 		}
-		return Command{Action: ActionExport, ProfilePath: args[1]}, nil
+		command.Action = ActionExport
+		command.ProfilePath = rest[1]
+		return command, nil
 	case string(ActionDNS):
-	return parseDNS(args[1:])
-default:
-		return Command{}, fmt.Errorf("unsupported command %q", args[0])
+		dnsCommand, err := parseDNS(rest[1:])
+		if err != nil {
+			return Command{}, err
+		}
+		command.Action = dnsCommand.Action
+		command.DNSAuto = dnsCommand.DNSAuto
+		command.DNSServers = dnsCommand.DNSServers
+		return command, nil
+	default:
+		return Command{}, fmt.Errorf("unsupported command %q", rest[0])
 	}
 }
 

@@ -2,57 +2,64 @@
 
 [English README](./README.md)
 
-`wifictl` 是一个以 macOS 为优先目标的命令行工具，用来管理当前 Wi-Fi 服务的 IP 和 DNS 配置。
+`wifictl` 是一个以 macOS 为优先目标的命令行工具，用来管理 macOS 网络服务的 IP 和 DNS 配置。
 
 ## 适用范围
 
-`wifictl` 不再负责连接指定 Wi-Fi。
+`wifictl` 不负责连接指定 Wi-Fi。
 
-现在这个工具只聚焦在一件更稳定的事情上：管理当前已经连接好的 Wi-Fi 服务配置，包括：
+这个工具只聚焦在更稳定的一层：管理目标网络服务配置，包括：
 
-- 查看当前 Wi-Fi 服务状态
-- 把当前 Wi-Fi 服务切回 DHCP
-- 给当前 Wi-Fi 服务加载一份静态 IP 配置
-- 把当前 Wi-Fi 服务导出成 profile 文件
+- 查看当前网络服务状态
+- 把目标网络服务切回 DHCP
+- 给目标网络服务加载一份静态 IP 配置
+- 把目标网络服务导出成 profile 文件
 - 单独调整 DNS 设置
+
+默认目标服务是 `Wi-Fi`，也可以通过 `--service <name>` 显式指定，例如 `Ethernet`。
 
 ## 命令
 
 ```bash
-wifictl status
-wifictl dhcp
-wifictl load <profile>
-wifictl export <profile>
-wifictl dns reset
-wifictl dns <server...>
+wifictl [--service <name>] status
+wifictl [--service <name>] dhcp
+wifictl [--service <name>] load <profile>
+wifictl [--service <name>] export <profile>
+wifictl [--service <name>] dns reset
+wifictl [--service <name>] dns <server...>
+wifictl services
 ```
 
 示例：
 
 ```bash
 wifictl status
-sudo wifictl dhcp
+wifictl --service Ethernet status
+sudo wifictl --service Ethernet dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
 sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 sudo wifictl dns 223.5.5.5 119.29.29.29
+wifictl services
 ```
 
 ## 命令行为
 
 - `status`
-  输出当前 Wi-Fi 服务、设备、是否已关联、IPv4 模式、IP、掩码、网关和 DNS。
+  输出目标服务、硬件端口、设备、IPv4 模式、IP、掩码、网关和 DNS。对于 Wi-Fi 服务，还会尽量输出是否已关联和 SSID。
 - `dhcp`
-  将 IPv4 切换为 DHCP，并把 DNS 恢复为自动。
+  将 IPv4 切换为 DHCP，并把 DNS 恢复为系统默认行为。
 - `load <profile>`
   加载一份静态 IP profile，并应用其中的 DNS 设置。
 - `export <profile>`
-  将当前 Wi-Fi 服务配置导出为 profile 文件。
+  将当前目标服务配置导出为 profile 文件。
 - `dns reset`
-  清除手动 DNS 设置，恢复为系统默认的 DNS 行为，不改 IPv4 模式。
+  清除手动 DNS 设置，恢复为系统默认 DNS 行为，不改 IPv4 模式。
 - `dns <server...>`
   只设置一个或多个 DNS，不改 IPv4 模式。
+- `services`
+  列出当前 macOS 可用的 network service、硬件端口和设备名。
 
 ## Profile 格式
 
@@ -88,7 +95,7 @@ sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 ```
 
-`status` 和 `export` 一般不需要 `sudo`。
+`status`、`export` 和 `services` 一般不需要 `sudo`。
 
 ## 快速开始
 
@@ -102,6 +109,8 @@ make build
 
 ```bash
 ./dist/wifictl status
+./dist/wifictl services
+./dist/wifictl --service Ethernet status
 sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
@@ -113,6 +122,7 @@ sudo ./dist/wifictl dns 114.114.114.114
 
 ```text
 Service: Wi-Fi
+Hardware Port: Wi-Fi
 Device: en1
 Associated: yes
 IPv4: Manual
@@ -120,6 +130,13 @@ IP: 10.60.1.94
 Mask: 255.255.0.0
 Gateway: 10.60.1.254
 DNS: 114.114.114.114
+```
+
+可用服务输出示例：
+
+```text
+Ethernet	Ethernet	en0
+Wi-Fi	Wi-Fi	en1
 ```
 
 ## 实现说明

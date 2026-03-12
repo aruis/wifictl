@@ -2,57 +2,64 @@
 
 [中文文档](./README.zh-CN.md)
 
-`wifictl` is a macOS-first CLI for managing the IP and DNS configuration of the current Wi-Fi service.
+`wifictl` is a macOS-first CLI for managing the IP and DNS configuration of a macOS network service.
 
 ## Scope
 
-`wifictl` does not try to join a Wi-Fi network anymore.
+`wifictl` does not try to join a Wi-Fi network.
 
-The tool is intentionally focused on a narrower and more reliable workflow on macOS:
+The tool is focused on a narrower and more reliable workflow on macOS:
 
-- inspect the current Wi-Fi service status
-- switch the current Wi-Fi service to DHCP
-- load a static IP profile onto the current Wi-Fi service
-- export the current Wi-Fi service config into a profile
+- inspect the current network service status
+- switch the target network service to DHCP
+- load a static IP profile onto the target network service
+- export the target network service config into a profile
 - change only DNS settings when needed
+
+By default, `wifictl` targets the `Wi-Fi` service. You can override that with `--service <name>`.
 
 ## Commands
 
 ```bash
-wifictl status
-wifictl dhcp
-wifictl load <profile>
-wifictl export <profile>
-wifictl dns reset
-wifictl dns <server...>
+wifictl [--service <name>] status
+wifictl [--service <name>] dhcp
+wifictl [--service <name>] load <profile>
+wifictl [--service <name>] export <profile>
+wifictl [--service <name>] dns reset
+wifictl [--service <name>] dns <server...>
+wifictl services
 ```
 
 Examples:
 
 ```bash
 wifictl status
-sudo wifictl dhcp
+wifictl --service Ethernet status
+sudo wifictl --service Ethernet dhcp
 sudo wifictl load examples/office.conf
 wifictl export office.conf
 sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 sudo wifictl dns 223.5.5.5 119.29.29.29
+wifictl services
 ```
 
 ## Command Behavior
 
 - `status`
-  Prints the current Wi-Fi service, device, association state, IPv4 mode, IP, mask, gateway, and DNS servers.
+  Prints the target service, hardware port, device, IPv4 mode, IP, mask, gateway, and DNS servers. For Wi-Fi services it also prints association state and SSID when available.
 - `dhcp`
-  Sets IPv4 to DHCP and resets DNS to automatic.
+  Sets IPv4 to DHCP and resets DNS to system default behavior.
 - `load <profile>`
   Loads a static IP profile and applies its DNS settings.
 - `export <profile>`
-  Exports the current Wi-Fi service configuration into a profile file.
+  Exports the current target service configuration into a profile file.
 - `dns reset`
   Clears manual DNS settings and returns DNS resolution to the system default behavior without changing the IPv4 mode.
 - `dns <server...>`
   Applies one or more DNS servers without changing the IPv4 mode.
+- `services`
+  Lists available macOS network services with hardware port and device.
 
 ## Profile Format
 
@@ -88,7 +95,7 @@ sudo wifictl dns reset
 sudo wifictl dns 114.114.114.114
 ```
 
-`status` and `export` do not require `sudo` in normal cases.
+`status`, `export`, and `services` do not require `sudo` in normal cases.
 
 ## Quick Start
 
@@ -102,6 +109,8 @@ Run:
 
 ```bash
 ./dist/wifictl status
+./dist/wifictl services
+./dist/wifictl --service Ethernet status
 sudo ./dist/wifictl dhcp
 sudo ./dist/wifictl load examples/office.conf
 ./dist/wifictl export examples/office.current.conf
@@ -113,6 +122,7 @@ sudo ./dist/wifictl dns 114.114.114.114
 
 ```text
 Service: Wi-Fi
+Hardware Port: Wi-Fi
 Device: en1
 Associated: yes
 IPv4: Manual
@@ -120,6 +130,13 @@ IP: 10.60.1.94
 Mask: 255.255.0.0
 Gateway: 10.60.1.254
 DNS: 114.114.114.114
+```
+
+Services output example:
+
+```text
+Ethernet	Ethernet	en0
+Wi-Fi	Wi-Fi	en1
 ```
 
 ## Implementation

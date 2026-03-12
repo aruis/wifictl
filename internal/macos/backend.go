@@ -10,15 +10,18 @@ import (
 	"github.com/aruis/wifictl/internal/profile"
 )
 
-type WiFiService struct {
+type NetworkService struct {
 	Device  string
 	Service string
+	HardwarePort string
 }
 
 type Status struct {
 	Service    string
+	HardwarePort string
 	Device     string
 	SSID       string
+	AssociationKnown bool
 	Associated bool
 	Method     string
 	IP         string
@@ -33,18 +36,17 @@ func New() *Backend {
 	return &Backend{}
 }
 
-func (b *Backend) ResolveWiFi(ctx context.Context) (WiFiService, error) {
-	device, err := b.findWiFiDevice(ctx)
+func (b *Backend) ResolveService(ctx context.Context, serviceName string) (NetworkService, error) {
+	services, err := b.ListServices(ctx)
 	if err != nil {
-		return WiFiService{}, err
+		return NetworkService{}, err
 	}
-
-	service, err := b.findWiFiService(ctx, device)
-	if err != nil {
-		return WiFiService{}, err
+	for _, service := range services {
+		if service.Service == serviceName {
+			return service, nil
+		}
 	}
-
-	return WiFiService{Device: device, Service: service}, nil
+	return NetworkService{}, fmt.Errorf("network service %q not found", serviceName)
 }
 
 func (b *Backend) CurrentSSID(ctx context.Context, device string) (string, error) {
@@ -106,14 +108,14 @@ func (b *Backend) ApplyStatic(ctx context.Context, service string, config profil
 	return b.ApplyDNSServers(ctx, service, config.DNS)
 }
 
-func (b *Backend) ExportProfile(ctx context.Context, wifi WiFiService) (profile.Config, error) {
-	status, err := b.Status(ctx, wifi)
+func (b *Backend) ExportProfile(ctx context.Context, service NetworkService) (profile.Config, error) {
+	status, err := b.Status(ctx, service)
 	if err != nil {
 		return profile.Config{}, err
 	}
 
 	if status.IP == "" || status.Mask == "" || status.Gateway == "" {
-		return profile.Config{}, fmt.Errorf("current Wi-Fi service does not expose a complete IPv4 manual configuration")
+		return profile.Config{}, fmt.Errorf("current network service does not expose a complete IPv4 configuration")
 	}
 
 	return profile.Config{
@@ -124,27 +126,36 @@ func (b *Backend) ExportProfile(ctx context.Context, wifi WiFiService) (profile.
 	}, nil
 }
 
-func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) {
-	associated, ssid, err := b.associationInfo(ctx, wifi.Device)
-	if err != nil {
-		return Status{}, err
+func (b *Backend) Status(ctx context.Context, service NetworkService) (Status, error) {
+	associated := false
+	ssid := ""
+	associationKnown := false
+	if service.HardwarePort == "Wi-Fi" || service.HardwarePort == "AirPort" {
+		var err error
+		associated, ssid, err = b.associationInfo(ctx, service.Device)
+		if err != nil {
+			return Status{}, err
+		}
+		associationKnown = true
 	}
 
-	infoOut, err := run(ctx, "networksetup", "-getinfo", wifi.Service)
+	infoOut, err := run(ctx, "networksetup", "-getinfo", service.Service)
 	if err != nil {
 		return Status{}, fmt.Errorf("read network service info: %w", err)
 	}
 	info := parseNetworkSetupInfo(infoOut)
 
-	dnsOut, err := run(ctx, "networksetup", "-getdnsservers", wifi.Service)
+	dnsOut, err := run(ctx, "networksetup", "-getdnsservers", service.Service)
 	if err != nil {
 		return Status{}, fmt.Errorf("read DNS servers: %w", err)
 	}
 
 	return Status{
-		Service:    wifi.Service,
-		Device:     wifi.Device,
+		Service:    service.Service,
+		HardwarePort: service.HardwarePort,
+		Device:     service.Device,
 		SSID:       ssid,
+		AssociationKnown: associationKnown,
 		Associated: associated,
 		Method:     info.Method,
 		IP:         info.IP,
@@ -152,6 +163,14 @@ func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) 
 		Gateway:    info.Gateway,
 		DNS:        parseDNSServers(dnsOut),
 	}, nil
+}
+
+func (b *Backend) ListServices(ctx context.Context) ([]NetworkService, error) {
+	out, err := run(ctx, "networksetup", "-listnetworkserviceorder")
+	if err != nil {
+		return nil, fmt.Errorf("list network services: %w", err)
+	}
+	return parseNetworkServiceOrder(out)
 }
 
 func (b *Backend) associationInfo(ctx context.Context, device string) (bool, string, error) {
@@ -162,39 +181,10 @@ func (b *Backend) associationInfo(ctx context.Context, device string) (bool, str
 	return b.associationFromSystemProfiler(ctx, device)
 }
 
-func (b *Backend) findWiFiDevice(ctx context.Context) (string, error) {
-	out, err := run(ctx, "networksetup", "-listallhardwareports")
-	if err != nil {
-		return "", fmt.Errorf("list hardware ports: %w", err)
-	}
-
-	lines := strings.Split(out, "\n")
-	for i := 0; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
-		if line != "Hardware Port: Wi-Fi" && line != "Hardware Port: AirPort" {
-			continue
-		}
-
-		for j := i + 1; j < len(lines) && j <= i+3; j++ {
-			next := strings.TrimSpace(lines[j])
-			if strings.HasPrefix(next, "Device: ") {
-				return strings.TrimSpace(strings.TrimPrefix(next, "Device: ")), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("Wi-Fi hardware device not found")
-}
-
-func (b *Backend) findWiFiService(ctx context.Context, device string) (string, error) {
-	out, err := run(ctx, "networksetup", "-listnetworkserviceorder")
-	if err != nil {
-		return "", fmt.Errorf("list network services: %w", err)
-	}
-
+func parseNetworkServiceOrder(out string) ([]NetworkService, error) {
 	serviceRe := regexp.MustCompile(`^\(\d+\)\s(.+)$`)
-	deviceRe := regexp.MustCompile(`^\(Hardware Port: .+, Device: (.+)\)$`)
-
+	detailRe := regexp.MustCompile(`^\(Hardware Port: (.+), Device: (.+)\)$`)
+	var services []NetworkService
 	var currentService string
 	for _, rawLine := range strings.Split(out, "\n") {
 		line := strings.TrimSpace(rawLine)
@@ -207,14 +197,19 @@ func (b *Backend) findWiFiService(ctx context.Context, device string) (string, e
 			continue
 		}
 
-		if matches := deviceRe.FindStringSubmatch(line); len(matches) == 2 && currentService != "" {
-			if strings.TrimSpace(matches[1]) == device {
-				return currentService, nil
-			}
+		if matches := detailRe.FindStringSubmatch(line); len(matches) == 3 && currentService != "" {
+			services = append(services, NetworkService{
+				Service: currentService,
+				HardwarePort: strings.TrimSpace(matches[1]),
+				Device: strings.TrimSpace(matches[2]),
+			})
+			currentService = ""
 		}
 	}
-
-	return "", fmt.Errorf("Wi-Fi network service not found for device %q", device)
+	if len(services) == 0 {
+		return nil, fmt.Errorf("no network services found")
+	}
+	return services, nil
 }
 
 type networkSetupInfo struct {
