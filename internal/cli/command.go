@@ -11,11 +11,12 @@ import (
 type Action string
 
 const (
-	ActionStatus Action = "status"
-	ActionDHCP   Action = "dhcp"
-	ActionLoad   Action = "load"
-	ActionExport Action = "export"
-	ActionDNS    Action = "dns"
+	ActionStatus   Action = "status"
+	ActionDHCP     Action = "dhcp"
+	ActionLoad     Action = "load"
+	ActionExport   Action = "export"
+	ActionDNS      Action = "dns"
+	ActionVersion  Action = "version"
 	ActionServices Action = "services"
 )
 
@@ -32,6 +33,7 @@ type Command struct {
 func Usage() string {
 	return strings.TrimLeft(`
 Usage:
+  wifictl version
   wifictl [--service <name>] status
   wifictl [--service <name>] dhcp
   wifictl [--service <name>] load <profile>
@@ -41,6 +43,7 @@ Usage:
   wifictl services
 
 Examples:
+  wifictl version
   wifictl status
   wifictl --service Ethernet status
   wifictl dhcp
@@ -77,6 +80,12 @@ func Parse(args []string) (Command, error) {
 	switch rest[0] {
 	case "help", "-h", "--help":
 		return Command{}, ErrHelp
+	case string(ActionVersion):
+		if len(rest) != 1 {
+			return Command{}, fmt.Errorf("version does not accept arguments")
+		}
+		command.Action = ActionVersion
+		return command, nil
 	case string(ActionServices):
 		if len(rest) != 1 {
 			return Command{}, fmt.Errorf("services does not accept arguments")

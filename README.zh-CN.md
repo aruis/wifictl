@@ -21,6 +21,7 @@
 ## 命令
 
 ```bash
+wifictl version
 wifictl [--service <name>] status
 wifictl [--service <name>] dhcp
 wifictl [--service <name>] load <profile>
@@ -33,6 +34,7 @@ wifictl services
 示例：
 
 ```bash
+wifictl version
 wifictl status
 wifictl --service Ethernet status
 sudo wifictl --service Ethernet dhcp
@@ -47,6 +49,8 @@ wifictl services
 
 - `status`
   输出目标服务、硬件端口、设备、IPv4 模式、IP、掩码、网关和 DNS。对于 Wi-Fi 服务，还会尽量输出是否已关联和 SSID。
+- `version`
+  输出当前二进制里嵌入的版本号、commit 和构建时间。
 - `dhcp`
   将 IPv4 切换为 DHCP，并把 DNS 恢复为系统默认行为。
 - `load <profile>`
@@ -107,6 +111,7 @@ make build
 运行：
 
 ```bash
+./dist/wifictl version
 ./dist/wifictl status
 ./dist/wifictl services
 ./dist/wifictl --service Ethernet status
@@ -118,6 +123,14 @@ sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 ## 输出示例
+
+版本输出示例：
+
+```text
+version: v1.26.2
+commit: ae062f4
+built: 2026-03-12T07:06:05Z
+```
 
 ```text
 Service: Wi-Fi

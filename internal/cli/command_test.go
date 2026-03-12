@@ -16,6 +16,17 @@ func TestParseStatus(t *testing.T) {
 	}
 }
 
+func TestParseVersion(t *testing.T) {
+	command, err := Parse([]string{"version"})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	if command.Action != ActionVersion {
+		t.Fatalf("unexpected action: %q", command.Action)
+	}
+}
+
 func TestParseLoad(t *testing.T) {
 	command, err := Parse([]string{"--service", "Ethernet", "load", "office.conf"})
 	if err != nil {

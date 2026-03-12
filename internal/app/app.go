@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/aruis/wifictl/internal/buildinfo"
 	"github.com/aruis/wifictl/internal/cli"
 	"github.com/aruis/wifictl/internal/macos"
 	"github.com/aruis/wifictl/internal/profile"
@@ -23,6 +24,11 @@ func New(backend *macos.Backend, out io.Writer) *App {
 }
 
 func (a *App) Run(ctx context.Context, command cli.Command) error {
+	if command.Action == cli.ActionVersion {
+		a.printVersion()
+		return nil
+	}
+
 	if runtime.GOOS != "darwin" {
 		return fmt.Errorf("wifictl currently supports macOS only")
 	}
@@ -120,6 +126,12 @@ func (a *App) runServices(ctx context.Context) error {
 		fmt.Fprintf(a.out, "%s\t%s\t%s\n", service.Service, service.HardwarePort, service.Device)
 	}
 	return nil
+}
+
+func (a *App) printVersion() {
+	fmt.Fprintf(a.out, "version: %s\n", buildinfo.Version)
+	fmt.Fprintf(a.out, "commit: %s\n", buildinfo.Commit)
+	fmt.Fprintf(a.out, "built: %s\n", buildinfo.Date)
 }
 
 func (a *App) printStatus(status macos.Status) {

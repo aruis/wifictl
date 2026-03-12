@@ -21,6 +21,7 @@ By default, `wifictl` targets the `Wi-Fi` service. You can override that with `-
 ## Commands
 
 ```bash
+wifictl version
 wifictl [--service <name>] status
 wifictl [--service <name>] dhcp
 wifictl [--service <name>] load <profile>
@@ -33,6 +34,7 @@ wifictl services
 Examples:
 
 ```bash
+wifictl version
 wifictl status
 wifictl --service Ethernet status
 sudo wifictl --service Ethernet dhcp
@@ -47,6 +49,8 @@ wifictl services
 
 - `status`
   Prints the target service, hardware port, device, IPv4 mode, IP, mask, gateway, and DNS servers. For Wi-Fi services it also prints association state and SSID when available.
+- `version`
+  Prints the application version, commit, and build time embedded in the binary.
 - `dhcp`
   Sets IPv4 to DHCP and resets DNS to system default behavior.
 - `load <profile>`
@@ -107,6 +111,7 @@ make build
 Run:
 
 ```bash
+./dist/wifictl version
 ./dist/wifictl status
 ./dist/wifictl services
 ./dist/wifictl --service Ethernet status
@@ -118,6 +123,14 @@ sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 ```
 
 ## Example Output
+
+Version output:
+
+```text
+version: v1.26.2
+commit: ae062f4
+built: 2026-03-12T07:06:05Z
+```
 
 ```text
 Service: Wi-Fi
