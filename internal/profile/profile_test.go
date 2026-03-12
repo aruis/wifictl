@@ -39,3 +39,30 @@ func TestLoadMissingGateway(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestSave(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "office.conf")
+	config := Config{
+		IP:      "10.60.1.94",
+		Mask:    "255.255.0.0",
+		Gateway: "10.60.1.254",
+		DNS:     []string{"114.114.114.114", "223.5.5.5"},
+	}
+
+	if err := Save(path, config); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if loaded.Gateway != config.Gateway {
+		t.Fatalf("unexpected gateway: %q", loaded.Gateway)
+	}
+	if len(loaded.DNS) != 2 {
+		t.Fatalf("unexpected dns count: %d", len(loaded.DNS))
+	}
+}

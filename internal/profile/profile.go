@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -70,6 +71,35 @@ func Load(path string) (Config, error) {
 	}
 
 	return config, nil
+}
+
+func Save(path string, config Config) error {
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("profile path cannot be empty")
+	}
+
+	if dir := filepath.Dir(path); dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create profile directory %q: %w", dir, err)
+		}
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create profile %q: %w", path, err)
+	}
+	defer file.Close()
+
+	if _, err := fmt.Fprintf(file, "ip=%s\nmask=%s\ngateway=%s\n", config.IP, config.Mask, config.Gateway); err != nil {
+		return fmt.Errorf("write profile %q: %w", path, err)
+	}
+	if len(config.DNS) > 0 {
+		if _, err := fmt.Fprintf(file, "dns=%s\n", strings.Join(config.DNS, ",")); err != nil {
+			return fmt.Errorf("write profile %q: %w", path, err)
+		}
+	}
+
+	return nil
 }
 
 func splitCSV(value string) []string {

@@ -3,3 +3,4 @@ bin/
 *.test
 *.out
 snapshots/
+examples/*.current.conf

@@ -16,9 +16,14 @@ type WiFiService struct {
 }
 
 type Status struct {
+	Service    string
+	Device     string
 	SSID       string
 	Associated bool
+	Method     string
 	IP         string
+	Mask       string
+	Gateway    string
 	DNS        []string
 }
 
@@ -39,23 +44,7 @@ func (b *Backend) ResolveWiFi(ctx context.Context) (WiFiService, error) {
 		return WiFiService{}, err
 	}
 
-	return WiFiService{
-		Device:  device,
-		Service: service,
-	}, nil
-}
-
-func (b *Backend) JoinWiFi(ctx context.Context, device, ssid, password string) error {
-	args := []string{"-setairportnetwork", device, ssid}
-	if password != "" {
-		args = append(args, password)
-	}
-
-	if _, err := run(ctx, "networksetup", args...); err != nil {
-		return fmt.Errorf("join Wi-Fi %q: %w", ssid, err)
-	}
-
-	return nil
+	return WiFiService{Device: device, Service: service}, nil
 }
 
 func (b *Backend) CurrentSSID(ctx context.Context, device string) (string, error) {
@@ -76,17 +65,30 @@ func (b *Backend) CurrentSSID(ctx context.Context, device string) (string, error
 	return strings.TrimSpace(ssid), nil
 }
 
-func (b *Backend) IsAssociated(ctx context.Context, device string) (bool, string, error) {
-	if associated, ssid, err := b.associationFromWDUtil(ctx, device); err == nil {
-		return associated, ssid, nil
-	}
-
-	return b.associationFromSystemProfiler(ctx, device)
-}
-
 func (b *Backend) ApplyDHCP(ctx context.Context, service string) error {
 	if _, err := run(ctx, "networksetup", "-setdhcp", service); err != nil {
 		return fmt.Errorf("apply DHCP on %q: %w", service, err)
+	}
+
+	return nil
+}
+
+func (b *Backend) ApplyDNSAuto(ctx context.Context, service string) error {
+	if _, err := run(ctx, "networksetup", "-setdnsservers", service, "empty"); err != nil {
+		return fmt.Errorf("apply automatic DNS on %q: %w", service, err)
+	}
+
+	return nil
+}
+
+func (b *Backend) ApplyDNSServers(ctx context.Context, service string, servers []string) error {
+	if len(servers) == 0 {
+		return fmt.Errorf("at least one DNS server is required")
+	}
+
+	args := append([]string{"-setdnsservers", service}, servers...)
+	if _, err := run(ctx, "networksetup", args...); err != nil {
+		return fmt.Errorf("apply DNS on %q: %w", service, err)
 	}
 
 	return nil
@@ -97,30 +99,42 @@ func (b *Backend) ApplyStatic(ctx context.Context, service string, config profil
 		return fmt.Errorf("apply static IP on %q: %w", service, err)
 	}
 
-	args := []string{"-setdnsservers", service}
 	if len(config.DNS) == 0 {
-		args = append(args, "empty")
-	} else {
-		args = append(args, config.DNS...)
+		return b.ApplyDNSAuto(ctx, service)
 	}
 
-	if _, err := run(ctx, "networksetup", args...); err != nil {
-		return fmt.Errorf("apply DNS on %q: %w", service, err)
+	return b.ApplyDNSServers(ctx, service, config.DNS)
+}
+
+func (b *Backend) ExportProfile(ctx context.Context, wifi WiFiService) (profile.Config, error) {
+	status, err := b.Status(ctx, wifi)
+	if err != nil {
+		return profile.Config{}, err
 	}
 
-	return nil
+	if status.IP == "" || status.Mask == "" || status.Gateway == "" {
+		return profile.Config{}, fmt.Errorf("current Wi-Fi service does not expose a complete IPv4 manual configuration")
+	}
+
+	return profile.Config{
+		IP:      status.IP,
+		Mask:    status.Mask,
+		Gateway: status.Gateway,
+		DNS:     status.DNS,
+	}, nil
 }
 
 func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) {
-	associated, ssid, err := b.IsAssociated(ctx, wifi.Device)
+	associated, ssid, err := b.associationInfo(ctx, wifi.Device)
 	if err != nil {
 		return Status{}, err
 	}
 
-	ip, err := run(ctx, "ipconfig", "getifaddr", wifi.Device)
+	infoOut, err := run(ctx, "networksetup", "-getinfo", wifi.Service)
 	if err != nil {
-		ip = ""
+		return Status{}, fmt.Errorf("read network service info: %w", err)
 	}
+	info := parseNetworkSetupInfo(infoOut)
 
 	dnsOut, err := run(ctx, "networksetup", "-getdnsservers", wifi.Service)
 	if err != nil {
@@ -128,11 +142,24 @@ func (b *Backend) Status(ctx context.Context, wifi WiFiService) (Status, error) 
 	}
 
 	return Status{
+		Service:    wifi.Service,
+		Device:     wifi.Device,
 		SSID:       ssid,
 		Associated: associated,
-		IP:         strings.TrimSpace(ip),
+		Method:     info.Method,
+		IP:         info.IP,
+		Mask:       info.Mask,
+		Gateway:    info.Gateway,
 		DNS:        parseDNSServers(dnsOut),
 	}, nil
+}
+
+func (b *Backend) associationInfo(ctx context.Context, device string) (bool, string, error) {
+	if associated, ssid, err := b.associationFromWDUtil(ctx, device); err == nil {
+		return associated, ssid, nil
+	}
+
+	return b.associationFromSystemProfiler(ctx, device)
 }
 
 func (b *Backend) findWiFiDevice(ctx context.Context) (string, error) {
@@ -188,6 +215,46 @@ func (b *Backend) findWiFiService(ctx context.Context, device string) (string, e
 	}
 
 	return "", fmt.Errorf("Wi-Fi network service not found for device %q", device)
+}
+
+type networkSetupInfo struct {
+	Method  string
+	IP      string
+	Mask    string
+	Gateway string
+}
+
+func parseNetworkSetupInfo(out string) networkSetupInfo {
+	info := networkSetupInfo{}
+
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasSuffix(trimmed, "Configuration"):
+			info.Method = strings.TrimSpace(strings.TrimSuffix(trimmed, "Configuration"))
+		case strings.HasPrefix(trimmed, "IP address: "):
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "IP address: "))
+			if !strings.EqualFold(value, "none") {
+				info.IP = value
+			}
+		case strings.HasPrefix(trimmed, "Subnet mask: "):
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "Subnet mask: "))
+			if !strings.EqualFold(value, "none") {
+				info.Mask = value
+			}
+		case strings.HasPrefix(trimmed, "Router: "):
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "Router: "))
+			if !strings.EqualFold(value, "none") {
+				info.Gateway = value
+			}
+		}
+	}
+
+	return info
+}
+
+func parseNetworkSetupIP(out string) (string, error) {
+	return parseNetworkSetupInfo(out).IP, nil
 }
 
 func parseDNSServers(out string) []string {

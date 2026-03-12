@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/aruis/wifictl/internal/app"
 	"github.com/aruis/wifictl/internal/cli"
@@ -23,7 +22,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	if err := app.New(macos.New(), os.Stdout).Run(context.Background(), command, 20*time.Second); err != nil {
+	if err := app.New(macos.New(), os.Stdout).Run(context.Background(), command); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
