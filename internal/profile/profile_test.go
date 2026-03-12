@@ -40,6 +40,45 @@ func TestLoadMissingGateway(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidIPv4Fields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "broken.conf")
+	content := "ip=192.168.10.999\nmask=255.255.255.0\ngateway=192.168.10.1\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write profile: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected invalid ip validation error")
+	}
+}
+
+func TestLoadRejectsInvalidMask(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "broken.conf")
+	content := "ip=192.168.10.88\nmask=255.0.255.0\ngateway=192.168.10.1\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write profile: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected invalid mask validation error")
+	}
+}
+
+func TestLoadRejectsInvalidDNS(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "broken.conf")
+	content := "ip=192.168.10.88\nmask=255.255.255.0\ngateway=192.168.10.1\ndns=223.5.5.5,invalid\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write profile: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected invalid dns validation error")
+	}
+}
+
 func TestSave(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "office.conf")

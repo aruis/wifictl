@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 )
 
@@ -142,8 +143,13 @@ func parseDNS(args []string) (Command, error) {
 	}
 
 	for _, value := range args {
-		if strings.TrimSpace(value) == "" {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
 			return Command{}, fmt.Errorf("dns server address cannot be empty")
+		}
+		ip := net.ParseIP(trimmed)
+		if ip == nil || ip.To4() == nil {
+			return Command{}, fmt.Errorf("dns server %q must be a valid IPv4 address", value)
 		}
 	}
 

@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseStatus(t *testing.T) {
 	command, err := Parse([]string{"status"})
@@ -63,6 +66,16 @@ func TestParseDNSServers(t *testing.T) {
 
 	if len(command.DNSServers) != 2 {
 		t.Fatalf("unexpected dns server count: %d", len(command.DNSServers))
+	}
+}
+
+func TestParseDNSRejectsInvalidServer(t *testing.T) {
+	_, err := Parse([]string{"dns", "not-an-ip"})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "valid IPv4 address") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

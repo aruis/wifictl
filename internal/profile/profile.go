@@ -3,6 +3,7 @@ package profile
 import (
 	"bufio"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,9 +66,23 @@ func Load(path string) (Config, error) {
 	if config.Gateway == "" {
 		return Config{}, fmt.Errorf("profile %q is missing gateway", path)
 	}
+	if err := validateIPv4("ip", config.IP); err != nil {
+		return Config{}, fmt.Errorf("profile %q: %w", path, err)
+	}
+	if err := validateIPv4Mask(config.Mask); err != nil {
+		return Config{}, fmt.Errorf("profile %q: %w", path, err)
+	}
+	if err := validateIPv4("gateway", config.Gateway); err != nil {
+		return Config{}, fmt.Errorf("profile %q: %w", path, err)
+	}
 
 	if dns := values["dns"]; dns != "" {
 		config.DNS = splitCSV(dns)
+		for _, server := range config.DNS {
+			if err := validateIPv4("dns", server); err != nil {
+				return Config{}, fmt.Errorf("profile %q: %w", path, err)
+			}
+		}
 	}
 
 	return config, nil
@@ -113,4 +128,28 @@ func splitCSV(value string) []string {
 	}
 
 	return out
+}
+
+func validateIPv4(field, value string) error {
+	ip := net.ParseIP(value)
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("%s must be a valid IPv4 address", field)
+	}
+
+	return nil
+}
+
+func validateIPv4Mask(value string) error {
+	ip := net.ParseIP(value)
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("mask must be a valid IPv4 subnet mask")
+	}
+
+	mask := net.IPMask(ip.To4())
+	ones, bits := mask.Size()
+	if bits != 32 || ones < 0 {
+		return fmt.Errorf("mask must be a valid IPv4 subnet mask")
+	}
+
+	return nil
 }
