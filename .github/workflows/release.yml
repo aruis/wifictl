@@ -106,3 +106,100 @@ jobs:
           else
             gh release create "${VERSION}" ./*.tar.gz --title "${VERSION}"
           fi
+
+  sync-homebrew-tap:
+    name: sync homebrew tap
+    needs: publish-release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: prepare tap update
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          ARM_URL="https://github.com/aruis/wifictl/releases/download/${TAG}/wifictl_${TAG}_Darwin_arm64.tar.gz"
+          X86_URL="https://github.com/aruis/wifictl/releases/download/${TAG}/wifictl_${TAG}_Darwin_x86_64.tar.gz"
+          BRANCH="codex/wifictl-${VERSION}"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/aruis/homebrew-tap.git" tap
+          cd tap
+          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+            git fetch origin "${BRANCH}"
+            git checkout -B "${BRANCH}" "origin/${BRANCH}"
+          else
+            git checkout -b "${BRANCH}"
+          fi
+
+          arm_sha="$(curl -fsSL "${ARM_URL}" | shasum -a 256 | awk '{print $1}')"
+          x86_sha="$(curl -fsSL "${X86_URL}" | shasum -a 256 | awk '{print $1}')"
+
+          export VERSION ARM_URL ARM_SHA="${arm_sha}" X86_URL X86_SHA="${x86_sha}"
+          ruby <<'RUBY'
+          path = "Formula/wifictl.rb"
+          content = File.read(path)
+          def replace!(content, pattern, replacement)
+            updated = content.sub(pattern, replacement)
+            raise "pattern not found: #{pattern}" if updated == content
+
+            updated
+          end
+
+          content = replace!(content, /version\s+"[^"]+"/, %(version "#{ENV.fetch("VERSION")}"))
+          content = replace!(content, %r{url\s+"https://github\.com/aruis/wifictl/releases/download/v[^/]+/wifictl_v[^"]+_Darwin_arm64\.tar\.gz"}, %(url "#{ENV.fetch("ARM_URL")}"))
+          content = replace!(content, /sha256\s+"[0-9a-f]{64}"/, %(sha256 "#{ENV.fetch("ARM_SHA")}"))
+          intel_block = /
+            if\ Hardware::CPU\.intel\?\n
+            \s+url\s+"https:\/\/github\.com\/aruis\/wifictl\/releases\/download\/v[^\/]+\/wifictl_v[^"]+_Darwin_x86_64\.tar\.gz"\n
+            \s+sha256\s+"[0-9a-f]{64}"
+          /mx
+          updated_intel = false
+          content = content.sub(intel_block) do |block|
+            updated_intel = true
+            block
+              .sub(%r{url\s+"https://github\.com/aruis/wifictl/releases/download/v[^/]+/wifictl_v[^"]+_Darwin_x86_64\.tar\.gz"}, %(url "#{ENV.fetch("X86_URL")}"))
+              .sub(/sha256\s+"[0-9a-f]{64}"/, %(sha256 "#{ENV.fetch("X86_SHA")}"))
+          end
+          raise "intel block not found" unless updated_intel
+          File.write(path, content)
+          RUBY
+
+          if git diff --quiet -- Formula/wifictl.rb; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/wifictl.rb
+          git commit -m "Update wifictl formula to ${VERSION}"
+          git push --set-upstream origin "${BRANCH}"
+
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: open or update pull request
+        if: steps.prepare.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd tap
+
+          if gh pr view "${{ steps.prepare.outputs.branch }}" --repo aruis/homebrew-tap >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          gh pr create \
+            --repo aruis/homebrew-tap \
+            --base main \
+            --head "${{ steps.prepare.outputs.branch }}" \
+            --title "Update wifictl formula to ${{ steps.prepare.outputs.version }}" \
+            --body "Automated update generated from wifictl release ${GITHUB_REF_NAME}."

@@ -127,9 +127,9 @@ sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 版本输出示例：
 
 ```text
-version: v1.26.2
-commit: ae062f4
-built: 2026-03-12T07:06:05Z
+version: v1.26.6
+commit: df10f68
+built: 2026-03-12T07:46:22Z
 ```
 
 ```text
