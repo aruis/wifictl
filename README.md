@@ -40,7 +40,6 @@ sudo wifictl load examples/office.conf
 wifictl export office.conf
 sudo wifictl dns reset
 sudo wifictl dns 223.5.5.5 223.6.6.6
-sudo wifictl dns 223.5.5.5 223.6.6.6
 wifictl services
 ```
 

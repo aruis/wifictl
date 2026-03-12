@@ -48,7 +48,6 @@ Examples:
   wifictl export office.conf
   wifictl dns reset
   wifictl dns 223.5.5.5 223.6.6.6
-  wifictl dns 223.5.5.5 223.6.6.6
   wifictl services
 `, "\n")
 }
