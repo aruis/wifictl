@@ -6,9 +6,6 @@ on:
       - "v*"
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 permissions:
   contents: write
 
@@ -29,8 +26,8 @@ jobs:
       - name: run tests
         run: go test ./...
 
-  release:
-    name: release
+  build-release:
+    name: build release
     needs: test
     runs-on: macos-latest
     strategy:
@@ -76,7 +73,30 @@ jobs:
           cp README.md README.zh-CN.md "${STAGE_DIR}/"
           tar -C release -czf "wifictl_${VERSION}_${ASSET_SUFFIX}.tar.gz" "wifictl_${VERSION}_${ASSET_SUFFIX}"
 
-      - name: publish release asset
-        uses: softprops/action-gh-release@v2
+      - name: upload packaged artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: wifictl_${{ github.ref_name }}_${{ matrix.asset_suffix }}.tar.gz
+          name: wifictl_${{ matrix.asset_suffix }}
+          path: wifictl_${{ github.ref_name }}_${{ matrix.asset_suffix }}.tar.gz
+
+  publish-release:
+    name: publish release
+    needs: build-release
+    runs-on: macos-latest
+    steps:
+      - name: download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-assets
+
+      - name: publish github release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          find dist-assets -type f -name '*.tar.gz' -exec cp {} . \;
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            gh release upload "${VERSION}" ./*.tar.gz --clobber
+          else
+            gh release create "${VERSION}" ./*.tar.gz --title "${VERSION}"
+          fi
