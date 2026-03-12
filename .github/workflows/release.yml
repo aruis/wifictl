@@ -157,10 +157,9 @@ jobs:
           path = "Formula/wifictl.rb"
           content = File.read(path)
           def replace!(content, pattern, replacement)
-            updated = content.sub(pattern, replacement)
-            raise "pattern not found: #{pattern}" if updated == content
+            raise "pattern not found: #{pattern}" unless pattern.match?(content)
 
-            updated
+            content.sub(pattern, replacement)
           end
 
           content = replace!(content, /version\s+"[^"]+"/, %(version "#{ENV.fetch("VERSION")}"))
