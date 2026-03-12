@@ -6,6 +6,9 @@ on:
       - "v*"
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: write
 
@@ -57,9 +60,9 @@ jobs:
           CGO_ENABLED: 0
           VERSION: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
-          BUILD_TIME: ${{ github.run_started_at }}
         run: |
           mkdir -p dist
+          BUILD_TIME="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           go build -trimpath -ldflags="-s -w -X github.com/aruis/wifictl/internal/buildinfo.Version=${VERSION} -X github.com/aruis/wifictl/internal/buildinfo.Commit=${COMMIT} -X github.com/aruis/wifictl/internal/buildinfo.Date=${BUILD_TIME}" -o "dist/wifictl" ./
 
       - name: package archive
