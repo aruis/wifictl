@@ -2,13 +2,13 @@
 
 [中文文档](./README.zh-CN.md)
 
-`wifictl` is a macOS-first CLI for managing the IP and DNS configuration of a macOS network service.
+`wifictl` is a macOS CLI for viewing and changing the IP and DNS configuration of a network service.
 
-## Scope
+## What It Does
 
-`wifictl` does not try to join a Wi-Fi network.
+`wifictl` works with the configuration of an existing macOS network service. It does not connect to Wi-Fi networks or manage Wi-Fi credentials.
 
-The tool is focused on a narrower and more reliable workflow on macOS:
+You can use it to:
 
 - inspect the current network service status
 - switch the target network service to DHCP
@@ -16,7 +16,7 @@ The tool is focused on a narrower and more reliable workflow on macOS:
 - export the target network service config into a profile
 - change only DNS settings when needed
 
-By default, `wifictl` targets the `Wi-Fi` service. You can override that with `--service <name>`.
+By default, `wifictl` targets the `Wi-Fi` service. Use `--service <name>` to target another service such as `Ethernet`.
 
 ## Commands
 
@@ -45,10 +45,24 @@ sudo wifictl dns 223.5.5.5 223.6.6.6
 wifictl services
 ```
 
+## Install
+
+Homebrew:
+
+```bash
+brew install aruis/tap/wifictl
+```
+
+Build from source:
+
+```bash
+make build
+```
+
 ## Command Behavior
 
 - `status`
-  Prints the target service, hardware port, device, IPv4 mode, IP, mask, gateway, and DNS servers. For Wi-Fi services it also prints association state and SSID when available.
+  Prints the target service, hardware port, device, IPv4 mode, IP, mask, gateway, and DNS servers. For Wi-Fi services it also shows association state and SSID when available.
 - `version`
   Prints the application version, commit, and build time embedded in the binary.
 - `dhcp`
@@ -56,7 +70,7 @@ wifictl services
 - `load <profile>`
   Loads a static IP profile and applies its DNS settings.
 - `export <profile>`
-  Exports the current target service configuration into a profile file.
+  Exports the current target service configuration to a profile file.
 - `dns reset`
   Clears manual DNS settings and returns DNS resolution to the system default behavior without changing the IPv4 mode.
 - `dns <server...>`
@@ -66,7 +80,7 @@ wifictl services
 
 ## Profile Format
 
-Profiles use a simple `key=value` format.
+Profiles use a simple `key=value` format:
 
 Example [`examples/office.conf`](/Users/aruis/develop/workspace-ai/test/wifictl/examples/office.conf):
 
@@ -89,7 +103,7 @@ Optional keys:
 
 ## Permissions
 
-Commands that modify network settings require administrator privileges:
+Commands that change network settings require administrator privileges:
 
 ```bash
 sudo wifictl dhcp
@@ -102,13 +116,7 @@ sudo wifictl dns 223.5.5.5 223.6.6.6
 
 ## Quick Start
 
-Build:
-
-```bash
-make build
-```
-
-Run:
+Run the built binary:
 
 ```bash
 ./dist/wifictl version
@@ -127,9 +135,9 @@ sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 Version output:
 
 ```text
-version: v1.26.6
-commit: df10f68
-built: 2026-03-12T07:46:22Z
+version: v1.26.7
+commit: 49dd605
+built: 2026-03-12T08:12:59Z
 ```
 
 ```text
@@ -151,15 +159,15 @@ Ethernet	Ethernet	en0
 Wi-Fi	Wi-Fi	en1
 ```
 
-## Implementation
+## How It Works
 
-`wifictl` relies on stable macOS system commands:
+`wifictl` is implemented in Go and uses macOS system tools including:
 
 - `networksetup`
 - `wdutil`
 - `system_profiler`
 
-The project is implemented in Go and structured as:
+Project layout:
 
 - `main.go`: entry point
 - `internal/cli`: command parsing
@@ -183,7 +191,7 @@ make build
 
 ## Release
 
-GitHub Actions is configured to:
+GitHub Actions currently:
 
 - run CI on pushes to `main` and on pull requests
 - create a GitHub Release when a tag matching `v*` is pushed
@@ -196,13 +204,12 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Release assets are uploaded as:
+Release assets are published as:
 
 - `wifictl_<version>_Darwin_arm64.tar.gz`
 - `wifictl_<version>_Darwin_x86_64.tar.gz`
 
-## Roadmap
+## Notes
 
-- add version output and release metadata
-- add stricter IPv4 and DNS validation
-- add Homebrew tap and formula
+- `load <profile>` validates IPv4 addresses, subnet mask, gateway, and DNS servers before applying changes.
+- Release builds are published for macOS `arm64` and `amd64`.

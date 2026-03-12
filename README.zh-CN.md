@@ -2,13 +2,13 @@
 
 [English README](./README.md)
 
-`wifictl` 是一个以 macOS 为优先目标的命令行工具，用来管理 macOS 网络服务的 IP 和 DNS 配置。
+`wifictl` 是一个用于查看和修改 macOS 网络服务 IP 与 DNS 配置的命令行工具。
 
-## 适用范围
+## 它能做什么
 
-`wifictl` 不负责连接指定 Wi-Fi。
+`wifictl` 面向已经存在的 macOS network service，只负责配置管理，不处理连接 Wi-Fi 或管理 Wi-Fi 凭据这类入网动作。
 
-这个工具只聚焦在更稳定的一层：管理目标网络服务配置，包括：
+你可以用它来：
 
 - 查看当前网络服务状态
 - 把目标网络服务切回 DHCP
@@ -16,7 +16,7 @@
 - 把目标网络服务导出成 profile 文件
 - 单独调整 DNS 设置
 
-默认目标服务是 `Wi-Fi`，也可以通过 `--service <name>` 显式指定，例如 `Ethernet`。
+默认目标服务是 `Wi-Fi`，也可以通过 `--service <name>` 指定其他服务，例如 `Ethernet`。
 
 ## 命令
 
@@ -29,6 +29,20 @@ wifictl [--service <name>] export <profile>
 wifictl [--service <name>] dns reset
 wifictl [--service <name>] dns <server...>
 wifictl services
+```
+
+## 安装
+
+使用 Homebrew：
+
+```bash
+brew install aruis/tap/wifictl
+```
+
+从源码构建：
+
+```bash
+make build
 ```
 
 示例：
@@ -48,7 +62,7 @@ wifictl services
 ## 命令行为
 
 - `status`
-  输出目标服务、硬件端口、设备、IPv4 模式、IP、掩码、网关和 DNS。对于 Wi-Fi 服务，还会尽量输出是否已关联和 SSID。
+  输出目标服务、硬件端口、设备、IPv4 模式、IP、掩码、网关和 DNS。对于 Wi-Fi 服务，还会在可用时输出关联状态和 SSID。
 - `version`
   输出当前二进制里嵌入的版本号、commit 和构建时间。
 - `dhcp`
@@ -56,7 +70,7 @@ wifictl services
 - `load <profile>`
   加载一份静态 IP profile，并应用其中的 DNS 设置。
 - `export <profile>`
-  将当前目标服务配置导出为 profile 文件。
+  将当前目标服务配置导出到 profile 文件。
 - `dns reset`
   清除手动 DNS 设置，恢复为系统默认 DNS 行为，不改 IPv4 模式。
 - `dns <server...>`
@@ -66,7 +80,7 @@ wifictl services
 
 ## Profile 格式
 
-profile 使用简单的 `key=value` 格式。
+profile 使用简单的 `key=value` 格式：
 
 示例 [`examples/office.conf`](/Users/aruis/develop/workspace-ai/test/wifictl/examples/office.conf)：
 
@@ -102,13 +116,7 @@ sudo wifictl dns 223.5.5.5 223.6.6.6
 
 ## 快速开始
 
-构建：
-
-```bash
-make build
-```
-
-运行：
+运行构建出的二进制：
 
 ```bash
 ./dist/wifictl version
@@ -127,9 +135,9 @@ sudo ./dist/wifictl dns 223.5.5.5 223.6.6.6
 版本输出示例：
 
 ```text
-version: v1.26.6
-commit: df10f68
-built: 2026-03-12T07:46:22Z
+version: v1.26.7
+commit: 49dd605
+built: 2026-03-12T08:12:59Z
 ```
 
 ```text
@@ -151,15 +159,15 @@ Ethernet	Ethernet	en0
 Wi-Fi	Wi-Fi	en1
 ```
 
-## 实现说明
+## 工作方式
 
-`wifictl` 依赖 macOS 的系统命令：
+`wifictl` 使用 Go 编写，并调用 macOS 自带的系统命令：
 
 - `networksetup`
 - `wdutil`
 - `system_profiler`
 
-项目使用 Go 实现，结构如下：
+项目结构：
 
 - `main.go`：程序入口
 - `internal/cli`：命令解析
@@ -183,7 +191,7 @@ make build
 
 ## 发布
 
-项目已经配置 GitHub Actions：
+当前已经配置 GitHub Actions：
 
 - 在 `main` 分支 push 和 PR 时自动跑 CI
 - 在推送符合 `v*` 的 tag 时自动创建 GitHub Release
@@ -201,8 +209,7 @@ Release 产物命名为：
 - `wifictl_<version>_Darwin_arm64.tar.gz`
 - `wifictl_<version>_Darwin_x86_64.tar.gz`
 
-## 后续计划
+## 说明
 
-- 增加版本号和构建信息输出
-- 增加更严格的 IPv4 和 DNS 校验
-- 接入 Homebrew tap 和 formula
+- `load <profile>` 在应用配置前会校验 IPv4 地址、子网掩码、网关和 DNS。
+- 当前 release 会发布 macOS `arm64` 和 `amd64` 两个构建产物。
